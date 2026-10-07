@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>ACT Tower AR</title>
+
+  <!-- A-Frame -->
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+
+  <!-- AR.js Location Based -->
+  <script src="https://raw.githack.com/AR-js-org/AR.js/3.4.7/three.js/build/ar-threex-location-only.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/3.4.7/aframe/build/aframe-ar.js"></script>
+
+  <!-- Faz o painel sempre olhar para o usuário -->
+  <script src="https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    }
+
+    #topInfo {
+      position: fixed;
+      z-index: 3000;
+      top: max(16px, env(safe-area-inset-top));
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(92vw, 560px);
+      padding: 10px 14px;
+      border-radius: 14px;
+      background: rgba(0,0,0,.58);
+      color: #fff;
+      text-align: center;
+      font-size: 14px;
+      line-height: 1.35;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      pointer-events: none;
+    }
+
+    #soundButton {
+      position: fixed;
+      z-index: 3001;
+      left: 50%;
+      bottom: max(28px, calc(env(safe-area-inset-bottom) + 18px));
+      transform: translateX(-50%);
+      border: 0;
+      border-radius: 999px;
+      padding: 13px 20px;
+      background: #fff;
+      color: #111;
+      font-size: 16px;
+      font-weight: 800;
+      box-shadow: 0 8px 30px rgba(0,0,0,.30);
+      transition: opacity .25s ease, transform .25s ease;
+    }
+
+    #soundButton.hidden {
+      opacity: 0;
+      transform: translate(-50%, 10px);
+      pointer-events: none;
+    }
+
+    #distance {
+      display: inline-block;
+      margin-top: 4px;
+      opacity: .8;
+      font-size: 13px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="topInfo">
+    Permita câmera e localização.<br>
+    Depois aponte o celular para a ACT Tower.
+    <br><span id="distance">Obtendo GPS…</span>
+  </div>
+
+  <button id="soundButton">🔊 Ativar som</button>
+
+  <a-scene
+    vr-mode-ui="enabled: false"
+    arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
+    renderer="antialias: true; alpha: true;">
+
+    <a-assets timeout="30000">
+      <video
+        id="arVideo"
+        src="./assets/video.mp4"
+        preload="auto"
+        loop
+        muted
+        playsinline
+        webkit-playsinline
+        crossorigin="anonymous">
+      </video>
+    </a-assets>
+
+    <!--
+      ACT TOWER:
+      latitude  = 34.705056
+      longitude = 137.735694
+
+      position Y = altura em metros ACIMA da câmera.
+      235 m deixa o vídeo visualmente acima da torre.
+    -->
+    <a-entity
+      id="actVideoAnchor"
+      gps-new-entity-place="latitude: 34.705056; longitude: 137.735694"
+      position="0 235 0"
+      look-at="[gps-new-camera]">
+
+      <!--
+        width = largura virtual em metros.
+        80 m deixa o vídeo bem visível a algumas centenas de metros.
+        A altura será ajustada automaticamente à proporção real do vídeo.
+      -->
+      <a-video
+        id="videoPlane"
+        src="#arVideo"
+        width="80"
+        height="45"
+        material="shader: flat; side: double;">
+      </a-video>
+
+    </a-entity>
+
+    <a-camera
+      id="gpsCamera"
+      gps-new-camera="gpsMinDistance: 3; positionMinAccuracy: 100"
+      camera="far: 5000"
+      look-controls="enabled: false"
+      arjs-device-orientation-controls="smoothingFactor: 0.1">
+    </a-camera>
+
+  </a-scene>
+
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+  const video = document.querySelector("#arVideo");
+  const plane = document.querySelector("#videoPlane");
+  const camera = document.querySelector("#gpsCamera");
+  const anchor = document.querySelector("#actVideoAnchor");
+  const soundButton = document.querySelector("#soundButton");
+  const distanceText = document.querySelector("#distance");
+
+  let soundUnlocked = false;
+
+  // Ajusta a altura do painel mantendo largura virtual de 80 m.
+  video.addEventListener("loadedmetadata", () => {
+    if (video.videoWidth && video.videoHeight) {
+      const widthMeters = 80;
+      const heightMeters = widthMeters * (video.videoHeight / video.videoWidth);
+      plane.setAttribute("height", heightMeters);
+    }
+  });
+
+  // Reprodução muda pode começar automaticamente.
+  video.muted = true;
+  video.play().catch(() => {});
+
+  // Safari/iPhone exige toque para liberar áudio.
+  soundButton.addEventListener("click", async () => {
+    soundUnlocked = true;
+    try {
+      video.muted = false;
+      await video.play();
+      soundButton.classList.add("hidden");
+    } catch (e) {
+      video.muted = true;
+    }
+  });
+
+  // Mostra distância aproximada até o ponto da ACT Tower.
+  camera.addEventListener("gps-camera-update-position", () => {
+    const gpsPlace = anchor.components["gps-new-entity-place"];
+
+    if (gpsPlace && typeof gpsPlace.distance === "number") {
+      const d = gpsPlace.distance;
+
+      if (d < 1000) {
+        distanceText.textContent = `ACT Tower: aproximadamente ${Math.round(d)} m`;
+      } else {
+        distanceText.textContent = `ACT Tower: aproximadamente ${(d/1000).toFixed(1)} km`;
+      }
+    } else {
+      distanceText.textContent = "GPS ativo — procure a ACT Tower.";
+    }
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      video.pause();
+    } else {
+      video.play().catch(() => {});
+    }
+  });
+});
+</script>
+
+</body>
+</html>

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="theme-color" content="#000000">
-<title>ACT Sky 200m</title>
+<title>ACT Sky 200m V2</title>
 
 <style>
 *{box-sizing:border-box}
@@ -13,19 +13,17 @@ html,body{
   margin:0;width:100%;height:100%;overflow:hidden;background:#000;
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
 }
-
 #camera{
   position:fixed;inset:0;width:100%;height:100%;
   object-fit:cover;background:#000;z-index:0;
 }
-
 #actVideo{
   position:fixed;z-index:5;display:none;object-fit:contain;
   pointer-events:none;transform:translate(-50%,-50%);
   transform-origin:center center;
   filter:drop-shadow(0 12px 30px rgba(0,0,0,.32));
+  transition:left .08s linear, top .12s linear, width .12s linear, height .12s linear;
 }
-
 #hud{
   position:fixed;z-index:20;top:max(12px,env(safe-area-inset-top));
   left:50%;transform:translateX(-50%);
@@ -34,40 +32,31 @@ html,body{
   font-size:14px;line-height:1.4;
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
 }
-
 #version{font-weight:800;color:#ffe600}
 #status{font-size:13px}
 #details{font-size:12px;opacity:.84}
-
 #startScreen{
   position:fixed;z-index:50;inset:0;background:rgba(0,0,0,.88);
   display:flex;align-items:center;justify-content:center;padding:24px;
 }
-
 #startCard{
-  width:min(90vw,420px);padding:26px 20px;border-radius:22px;
+  width:min(90vw,430px);padding:26px 20px;border-radius:22px;
   background:rgba(26,26,26,.96);color:#fff;text-align:center;
 }
-
 #startCard h1{margin:0 0 8px;font-size:24px}
 #startCard p{margin:0 0 18px;color:rgba(255,255,255,.78);line-height:1.45}
-
 button{
   border:0;border-radius:999px;padding:14px 21px;
   font-size:16px;font-weight:800;
 }
-
 #startButton{width:100%;background:#fff;color:#111}
-
 #soundButton{
   position:fixed;z-index:30;left:50%;
   bottom:max(28px,calc(env(safe-area-inset-bottom) + 18px));
   transform:translateX(-50%);background:#fff;color:#111;
   box-shadow:0 8px 30px rgba(0,0,0,.30);display:none;
 }
-
 #soundButton.hidden{opacity:0;pointer-events:none}
-
 #error{
   position:fixed;z-index:60;left:50%;top:50%;
   transform:translate(-50%,-50%);
@@ -83,22 +72,22 @@ button{
 
 <video
   id="actVideo"
-  src="./assets/video.mp4?v=200m1"
+  src="./assets/video.mp4?v=200m2"
   autoplay muted loop playsinline webkit-playsinline preload="auto">
 </video>
 
 <div id="hud">
-  <span id="version">ACT SKY 200M v1</span><br>
+  <span id="version">ACT SKY 200M v2</span><br>
   <span id="status">Toque em “Iniciar”.</span><br>
   <span id="details"></span>
 </div>
 
 <div id="startScreen">
   <div id="startCard">
-    <h1>Vídeo a 200 m</h1>
+    <h1>Vídeo a 200 m — estável</h1>
     <p>
-      O vídeo horizontal ficará na direção da ACT Tower
-      como se estivesse a <b>200 metros de altura</b>.
+      Esta versão deixa a altura do vídeo mais travada,
+      para ele não subir ou descer demais quando você inclina o telefone.
     </p>
     <button id="startButton">Iniciar</button>
   </div>
@@ -111,17 +100,23 @@ button{
 (() => {
   const TARGET_LAT = 34.70555;
   const TARGET_LON = 137.73719;
-
-  // Altura virtual desejada
   const TARGET_HEIGHT_M = 200;
 
-  // Vídeo horizontal 16:9
+  // FOV aproximado
   const HFOV = 65;
   const VFOV = 52;
 
+  // Tamanho do vídeo horizontal
   const BASE_WIDTH_RATIO = 0.72;
   const MAX_WIDTH_PX = 620;
   const MIN_WIDTH_PX = 220;
+
+  // Quanto a inclinação do telefone influencia verticalmente.
+  // 0 = ignora totalmente / 1 = influência total
+  const TILT_INFLUENCE = 0.18;
+
+  // Linha-base do horizonte aproximada
+  const HORIZON_Y_RATIO = 0.56;
 
   const camera = document.getElementById("camera");
   const actVideo = document.getElementById("actVideo");
@@ -138,6 +133,10 @@ button{
   let heading = null;
   let beta = null;
   let started = false;
+
+  let smoothX = null;
+  let smoothY = null;
+  let smoothW = null;
 
   function showError(msg){
     errorEl.textContent = msg;
@@ -157,6 +156,14 @@ button{
     a %= 360;
     if(a < 0) a += 360;
     return a;
+  }
+
+  function clamp(v,min,max){
+    return Math.min(max, Math.max(min, v));
+  }
+
+  function lerp(a,b,t){
+    return a + (b-a)*t;
   }
 
   function distanceMeters(lat1, lon1, lat2, lon2){
@@ -215,11 +222,7 @@ button{
         accuracy = pos.coords.accuracy;
       },
       err => showError("GPS: " + err.message),
-      {
-        enableHighAccuracy:true,
-        maximumAge:0,
-        timeout:20000
-      }
+      { enableHighAccuracy:true, maximumAge:0, timeout:20000 }
     );
   }
 
@@ -246,53 +249,64 @@ button{
   }
 
   function renderLoop(){
-    if(userLat != null && userLon != null && heading != null && beta != null){
+    if(userLat != null && userLon != null && heading != null){
       const distance = distanceMeters(userLat, userLon, TARGET_LAT, TARGET_LON);
       const bearing = bearingDegrees(userLat, userLon, TARGET_LAT, TARGET_LON);
       const horizontalDiff = normalize180(bearing - heading);
 
-      // Ângulo real aproximado para 200m de altura
+      // Altura geométrica desejada (200 m)
       const elevationAngle = deg(Math.atan2(TARGET_HEIGHT_M, Math.max(distance, 1)));
 
-      // Converte direção horizontal em posição X
-      const x = window.innerWidth/2 +
-                (horizontalDiff/HFOV)*window.innerWidth;
+      // Linha-base no céu, sem depender muito do beta
+      let yBase = window.innerHeight * HORIZON_Y_RATIO -
+                  (elevationAngle / VFOV) * window.innerHeight;
 
-      /*
-        No iPhone, beta ~= 90° quando está vertical.
-        pitchUp = quanto o telefone está apontando para cima.
-      */
-      const pitchUp = 90 - beta;
-
-      // Diferença entre para onde o telefone olha e a altura virtual desejada
-      const verticalDiff = elevationAngle - pitchUp;
-
-      // Converte ângulo vertical para posição Y
-      const y = window.innerHeight/2 -
-                (verticalDiff/VFOV)*window.innerHeight;
-
-      // Tamanho do painel
-      const base = Math.min(window.innerWidth*BASE_WIDTH_RATIO, MAX_WIDTH_PX);
-      let widthPx = base;
-
-      if(distance < 250){
-        widthPx = Math.min(MAX_WIDTH_PX, base*1.10);
-      }else if(distance > 900){
-        widthPx = Math.max(MIN_WIDTH_PX, base*0.88);
+      // Pequena influência da inclinação só para dar sensação de acompanhamento
+      if(beta != null){
+        const pitchUp = 90 - beta; // valor aproximado
+        yBase -= (pitchUp / VFOV) * window.innerHeight * TILT_INFLUENCE;
       }
 
-      const heightPx = widthPx*(1080/1920);
+      // Horizontal segue direção da ACT
+      let xTarget = window.innerWidth/2 + (horizontalDiff/HFOV)*window.innerWidth;
 
-      actVideo.style.width = `${widthPx}px`;
-      actVideo.style.height = `${heightPx}px`;
-      actVideo.style.left = `${x}px`;
-      actVideo.style.top = `${y}px`;
+      // Tamanho
+      const base = Math.min(window.innerWidth*BASE_WIDTH_RATIO, MAX_WIDTH_PX);
+      let widthTarget = base;
+
+      if(distance < 250){
+        widthTarget = Math.min(MAX_WIDTH_PX, base*1.10);
+      }else if(distance > 900){
+        widthTarget = Math.max(MIN_WIDTH_PX, base*0.88);
+      }
+
+      const heightTarget = widthTarget*(1080/1920);
+
+      // CLAMPS IMPORTANTES:
+      // não deixa sair demais da tela
+      xTarget = clamp(xTarget, -widthTarget*0.10, window.innerWidth + widthTarget*0.10);
+      yBase   = clamp(yBase, window.innerHeight*0.14, window.innerHeight*0.68);
+
+      // Suavização
+      if(smoothX === null){
+        smoothX = xTarget;
+        smoothY = yBase;
+        smoothW = widthTarget;
+      }else{
+        smoothX = lerp(smoothX, xTarget, 0.18);
+        smoothY = lerp(smoothY, yBase, 0.14);
+        smoothW = lerp(smoothW, widthTarget, 0.16);
+      }
+
+      const smoothH = smoothW*(1080/1920);
+
+      actVideo.style.width = `${smoothW}px`;
+      actVideo.style.height = `${smoothH}px`;
+      actVideo.style.left = `${smoothX}px`;
+      actVideo.style.top = `${smoothY}px`;
       actVideo.style.display = "block";
 
-      const visible =
-        Math.abs(horizontalDiff) < 85 &&
-        Math.abs(verticalDiff) < 70;
-
+      const visible = Math.abs(horizontalDiff) < 88;
       actVideo.style.visibility = visible ? "visible" : "hidden";
 
       const dirText =
@@ -300,14 +314,11 @@ button{
         horizontalDiff < -8 ? "à esquerda" :
         "à frente";
 
-      statusEl.textContent =
-        `ACT: ${Math.round(distance)} m • ${dirText}`;
-
+      statusEl.textContent = `ACT: ${Math.round(distance)} m • ${dirText}`;
       detailsEl.textContent =
-        `altura virtual 200 m • ângulo ${elevationAngle.toFixed(1)}° • GPS ±${accuracy ? Math.round(accuracy) : "?"} m`;
-
+        `200 m de altura • GPS ±${accuracy ? Math.round(accuracy) : "?"} m • ângulo ${elevationAngle.toFixed(1)}°`;
     }else{
-      statusEl.textContent = "Aguardando GPS, bússola e inclinação…";
+      statusEl.textContent = "Aguardando GPS e bússola…";
       detailsEl.textContent = "Permita localização e sensores.";
     }
 

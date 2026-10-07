@@ -183,7 +183,7 @@ button{
 
 <video
   id="actVideo"
-  src="./assets/video.mp4?v=actdir1"
+  src="./assets/video.mp4?v=horizontal1"
   autoplay
   muted
   loop
@@ -193,7 +193,7 @@ button{
 </video>
 
 <div id="hud">
-  <span id="version">ACT DIRECTION SKY v1</span><br>
+  <span id="version">ACT SKY HORIZONTAL v1</span><br>
   <span id="status">Toque em “Iniciar”.</span><br>
   <span id="details"></span>
 </div>
@@ -207,8 +207,8 @@ button{
   <div id="startCard">
     <h1>Vídeo na direção da ACT</h1>
     <p>
-      O vídeo vai aparecer automaticamente no céu, mas sempre apontando
-      para o lado da <b>ACT Tower</b>.
+      Vídeo horizontal 1920×1080 no céu, sempre na direção da
+      <b>ACT Tower</b>.
     </p>
     <button id="startButton">Iniciar</button>
   </div>
@@ -219,17 +219,15 @@ button{
 
 <script>
 (() => {
-  // ACT Tower (corrigida)
   const TARGET_LAT = 34.70555;
   const TARGET_LON = 137.73719;
 
-  // O vídeo fica "no céu", não preso ao prédio.
-  const SKY_TOP = 26; // porcentagem vertical
-  const BASE_WIDTH_RATIO = 0.34; // largura da tela
-  const MAX_WIDTH_PX = 320;
-  const MIN_WIDTH_PX = 110;
+  // Vídeo horizontal 16:9
+  const SKY_TOP = 28;
+  const BASE_WIDTH_RATIO = 0.72;
+  const MAX_WIDTH_PX = 620;
+  const MIN_WIDTH_PX = 220;
 
-  // Faixa angular horizontal aproximada visível pela câmera
   const HFOV = 65;
 
   const camera = document.getElementById("camera");
@@ -357,23 +355,20 @@ button{
       const bearing = bearingDegrees(userLat, userLon, TARGET_LAT, TARGET_LON);
       const diff = normalize180(bearing - heading);
 
-      // Posição horizontal: centro da tela +/- deslocamento angular
       const x = window.innerWidth/2 + (diff/HFOV)*window.innerWidth;
-
-      // Vídeo fixo no "céu"
       const y = window.innerHeight*(SKY_TOP/100);
 
-      // Tamanho básico + leve ajuste pela distância
       const base = Math.min(window.innerWidth*BASE_WIDTH_RATIO, MAX_WIDTH_PX);
       let widthPx = base;
 
       if(distance < 250){
-        widthPx = Math.min(MAX_WIDTH_PX, base*1.18);
+        widthPx = Math.min(MAX_WIDTH_PX, base*1.10);
       }else if(distance > 900){
-        widthPx = Math.max(MIN_WIDTH_PX, base*0.82);
+        widthPx = Math.max(MIN_WIDTH_PX, base*0.88);
       }
 
-      const heightPx = widthPx*(1920/1080);
+      // 16:9 horizontal
+      const heightPx = widthPx*(1080/1920);
 
       actVideo.style.width = `${widthPx}px`;
       actVideo.style.height = `${heightPx}px`;
@@ -381,7 +376,6 @@ button{
       actVideo.style.top = `${y}px`;
       actVideo.style.display = "block";
 
-      // Agulha indica para que lado está a ACT em relação ao celular
       compassNeedle.style.transform = `rotate(${diff}deg)`;
 
       const visible = Math.abs(diff) < 85;
@@ -396,9 +390,9 @@ button{
         `ACT Tower: aprox. ${Math.round(distance)} m • ${dirText}`;
 
       detailsEl.textContent =
-        `GPS ±${accuracy ? Math.round(accuracy) : "?"} m • direção ${Math.round(diff)}° • vídeo no céu`;
+        `GPS ±${accuracy ? Math.round(accuracy) : "?"} m • direção ${Math.round(diff)}° • 1920×1080`;
 
-    } else {
+    }else{
       statusEl.textContent = "Aguardando GPS e bússola…";
       detailsEl.textContent = "Permita localização e sensores.";
     }
@@ -414,7 +408,6 @@ button{
       await requestMotionPermission();
       await startCamera();
 
-      // Inicia vídeo mudo automaticamente
       actVideo.muted = true;
       actVideo.play().catch(()=>{});
 

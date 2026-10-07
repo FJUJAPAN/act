@@ -7,38 +7,64 @@
 <title>ACT Tower AR</title>
 
 <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+<script src="https://unpkg.com/aframe-look-at-component@1.0.0/dist/aframe-look-at-component.min.js"></script>
 <script src="https://raw.githack.com/AR-js-org/AR.js/3.4.7/three.js/build/ar-threex-location-only.js"></script>
 <script src="https://raw.githack.com/AR-js-org/AR.js/3.4.7/aframe/build/aframe-ar.js"></script>
 
-<script>
-AFRAME.registerComponent('billboard-camera', {
-  init: function () {
-    this.cameraEl = document.querySelector('[gps-new-camera]');
-    this.target = new THREE.Vector3();
-  },
-  tick: function () {
-    if (!this.cameraEl || !this.cameraEl.object3D) return;
-    this.cameraEl.object3D.getWorldPosition(this.target);
-    this.el.object3D.lookAt(this.target);
-  }
-});
-</script>
-
 <style>
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
-#info{position:fixed;z-index:3000;top:max(14px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);width:min(92vw,600px);padding:11px 14px;border-radius:14px;background:rgba(0,0,0,.62);color:#fff;text-align:center;font-size:14px;line-height:1.45;backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);pointer-events:none}
-#status{opacity:.85;font-size:13px}
-#sound{position:fixed;z-index:3001;left:50%;bottom:max(28px,calc(env(safe-area-inset-bottom) + 18px));transform:translateX(-50%);border:0;border-radius:999px;padding:13px 20px;background:#fff;color:#111;font-size:16px;font-weight:800;box-shadow:0 8px 30px rgba(0,0,0,.3)}
+html,body{
+  margin:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:#000;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+}
+#info{
+  position:fixed;
+  z-index:3000;
+  top:max(12px,env(safe-area-inset-top));
+  left:50%;
+  transform:translateX(-50%);
+  width:min(94vw,620px);
+  padding:10px 14px;
+  border-radius:14px;
+  background:rgba(0,0,0,.64);
+  color:#fff;
+  text-align:center;
+  font-size:14px;
+  line-height:1.4;
+  backdrop-filter:blur(9px);
+  -webkit-backdrop-filter:blur(9px);
+  pointer-events:none;
+}
+#sound{
+  position:fixed;
+  z-index:3001;
+  left:50%;
+  bottom:max(25px,calc(env(safe-area-inset-bottom) + 16px));
+  transform:translateX(-50%);
+  border:0;
+  border-radius:999px;
+  padding:13px 20px;
+  background:#fff;
+  color:#111;
+  font-size:16px;
+  font-weight:800;
+  box-shadow:0 8px 30px rgba(0,0,0,.3);
+}
 #sound.hidden{display:none}
+.small{font-size:12px;opacity:.8}
 </style>
 </head>
 
 <body>
 
 <div id="info">
-  Aponte para a ACT Tower e também um pouco acima dela.<br>
+  Aponte para a ACT Tower e mova o celular lentamente.<br>
   <span id="distance">Obtendo GPS…</span><br>
-  <span id="status">Carregando vídeo…</span>
+  <span id="videoStatus">Carregando vídeo…</span><br>
+  <span class="small">TESTE: procure também uma esfera amarela acima da torre.</span>
 </div>
 
 <button id="sound">🔊 Ativar som</button>
@@ -49,47 +75,63 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;font-f
   renderer="antialias:true; alpha:true;">
 
   <a-assets timeout="30000">
-    <video id="arVideo"
+    <video
+      id="arVideo"
       src="./assets/video.mp4"
+      preload="auto"
       autoplay
       loop
       muted
       playsinline
-      webkit-playsinline
-      preload="auto"
-      crossorigin="anonymous">
+      webkit-playsinline>
     </video>
   </a-assets>
 
-  <a-entity
-    id="anchor"
-    gps-new-entity-place="latitude:34.705056; longitude:137.735694"
-    position="0 215 0"
-    billboard-camera>
-
-    <a-plane
-      width="126"
-      height="76"
-      position="0 0 -0.5"
-      material="color:#ffffff; opacity:0.28; transparent:true; side:double">
-    </a-plane>
-
-    <a-plane
-      id="videoPlane"
-      width="120"
-      height="67.5"
-      material="src:#arVideo; shader:flat; side:double; transparent:false">
-    </a-plane>
-
-  </a-entity>
-
+  <!-- Câmera conforme documentação AR.js -->
   <a-camera
-    id="cam"
+    id="camera"
     camera="far:5000"
     look-controls-enabled="false"
     arjs-device-orientation-controls="smoothingFactor:0.1"
     gps-new-camera="gpsMinDistance:3; positionMinAccuracy:100">
   </a-camera>
+
+  <!-- Ponto geográfico da ACT Tower -->
+  <a-entity
+    id="geoAnchor"
+    gps-new-entity-place="latitude:34.705056; longitude:137.735694"
+    position="0 220 0">
+
+    <!-- Tudo dentro deste grupo fica sempre virado para a câmera -->
+    <a-entity id="billboard" look-at="[gps-new-camera]">
+
+      <!-- Fundo branco translúcido maior que o vídeo -->
+      <a-plane
+        width="132"
+        height="78"
+        position="0 0 -0.8"
+        material="color:#ffffff; opacity:0.30; transparent:true; side:double">
+      </a-plane>
+
+      <!-- Vídeo principal -->
+      <a-plane
+        id="videoPlane"
+        width="120"
+        height="67.5"
+        position="0 0 0"
+        material="src:#arVideo; shader:flat; side:double">
+      </a-plane>
+
+    </a-entity>
+  </a-entity>
+
+  <!-- Marcador de diagnóstico: esfera visível de qualquer ângulo -->
+  <a-sphere
+    gps-new-entity-place="latitude:34.705056; longitude:137.735694"
+    position="0 250 0"
+    radius="12"
+    material="color:#ffff00; emissive:#ffff00; emissiveIntensity:0.8;">
+  </a-sphere>
 
 </a-scene>
 
@@ -97,48 +139,48 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;font-f
 window.addEventListener("DOMContentLoaded",()=>{
   const video=document.querySelector("#arVideo");
   const plane=document.querySelector("#videoPlane");
-  const anchor=document.querySelector("#anchor");
-  const cam=document.querySelector("#cam");
+  const anchor=document.querySelector("#geoAnchor");
+  const camera=document.querySelector("#camera");
   const distance=document.querySelector("#distance");
-  const status=document.querySelector("#status");
+  const videoStatus=document.querySelector("#videoStatus");
   const sound=document.querySelector("#sound");
 
   video.addEventListener("loadedmetadata",()=>{
-    const w=120;
     if(video.videoWidth && video.videoHeight){
-      plane.setAttribute("height", w*(video.videoHeight/video.videoWidth));
+      const w=120;
+      plane.setAttribute("height",w*(video.videoHeight/video.videoWidth));
     }
   });
 
   video.addEventListener("canplay",()=>{
-    status.textContent="✓ Vídeo carregado";
+    videoStatus.textContent="✓ Vídeo carregado";
     video.play().catch(()=>{});
   });
 
   video.addEventListener("playing",()=>{
-    status.textContent="✓ Vídeo reproduzindo";
+    videoStatus.textContent="✓ Vídeo reproduzindo";
   });
 
   video.addEventListener("error",()=>{
-    status.textContent="⚠️ ERRO: assets/video.mp4 não carregou";
+    videoStatus.textContent="⚠️ Erro ao carregar assets/video.mp4";
   });
 
-  sound.addEventListener("click", async()=>{
+  sound.addEventListener("click",async()=>{
     try{
       video.muted=false;
       await video.play();
       sound.classList.add("hidden");
-      status.textContent="✓ Vídeo + som ativos";
+      videoStatus.textContent="✓ Vídeo + som ativos";
     }catch(e){
-      status.textContent="⚠️ Toque novamente para ativar o vídeo";
+      videoStatus.textContent="⚠️ Toque novamente para liberar o som";
     }
   });
 
-  cam.addEventListener("gps-camera-update-position",()=>{
+  camera.addEventListener("gps-camera-update-position",()=>{
     const comp=anchor.components["gps-new-entity-place"];
     if(comp && typeof comp.distance==="number"){
       const d=comp.distance;
-      distance.textContent = d<1000
+      distance.textContent=d<1000
         ? `ACT Tower: aproximadamente ${Math.round(d)} m`
         : `ACT Tower: aproximadamente ${(d/1000).toFixed(1)} km`;
     }else{
@@ -149,7 +191,7 @@ window.addEventListener("DOMContentLoaded",()=>{
   setTimeout(()=>{
     video.muted=true;
     video.play().catch(()=>{});
-  },1200);
+  },1000);
 });
 </script>
 

@@ -4,176 +4,567 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
-<title>ACT Tower AR</title>
-
-<script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-<script src="https://unpkg.com/aframe-look-at-component@1.0.0/dist/aframe-look-at-component.min.js"></script>
-
-<!-- AR.js 3.4.8: location-based com correções recentes para iOS -->
-<script src="https://raw.githack.com/AR-js-org/AR.js/3.4.8/three.js/build/ar-threex-location-only.js"></script>
-<script src="https://raw.githack.com/AR-js-org/AR.js/3.4.8/aframe/build/aframe-ar.js"></script>
+<title>ACT Tower AR iPhone</title>
 
 <style>
-html,body{
-  margin:0;width:100%;height:100%;overflow:hidden;background:#000;
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
 }
-#hud{
-  position:fixed;z-index:3000;
-  top:max(12px,env(safe-area-inset-top));
-  left:50%;transform:translateX(-50%);
-  width:min(94vw,620px);
-  padding:10px 14px;border-radius:14px;
-  background:rgba(0,0,0,.62);color:#fff;
-  text-align:center;font-size:14px;line-height:1.42;
-  backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
-  pointer-events:none
+
+#camera {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+  z-index: 0;
 }
-#status{font-size:12px;opacity:.82}
-#sound{
-  position:fixed;z-index:3001;
-  left:50%;
-  bottom:max(28px,calc(env(safe-area-inset-bottom) + 18px));
-  transform:translateX(-50%);
-  border:0;border-radius:999px;
-  padding:13px 20px;background:#fff;color:#111;
-  font-size:16px;font-weight:800;
-  box-shadow:0 8px 30px rgba(0,0,0,.3)
+
+#arVideo {
+  position: fixed;
+  z-index: 5;
+  display: none;
+  object-fit: contain;
+  pointer-events: none;
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 8px 18px rgba(0,0,0,.35));
 }
-#sound.hidden{display:none}
+
+#hud {
+  position: fixed;
+  z-index: 20;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(94vw, 620px);
+  padding: 10px 14px;
+  border-radius: 15px;
+  background: rgba(0,0,0,.60);
+  color: white;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.4;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+#version {
+  font-weight: 800;
+  color: #ffe600;
+}
+
+#details {
+  font-size: 12px;
+  opacity: .85;
+}
+
+#startScreen {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  background: rgba(0,0,0,.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+#startCard {
+  width: min(90vw, 400px);
+  padding: 26px 20px;
+  border-radius: 22px;
+  background: rgba(28,28,28,.96);
+  color: white;
+  text-align: center;
+}
+
+#startCard h1 {
+  margin: 0 0 8px;
+  font-size: 24px;
+}
+
+#startCard p {
+  margin: 0 0 18px;
+  color: rgba(255,255,255,.78);
+  line-height: 1.45;
+}
+
+button {
+  border: 0;
+  border-radius: 999px;
+  padding: 14px 21px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+#startButton {
+  width: 100%;
+  background: white;
+  color: #111;
+}
+
+#calibrateButton {
+  position: fixed;
+  z-index: 30;
+  left: 50%;
+  bottom: max(28px, calc(env(safe-area-inset-bottom) + 18px));
+  transform: translateX(-50%);
+  background: white;
+  color: #111;
+  box-shadow: 0 8px 30px rgba(0,0,0,.3);
+  display: none;
+}
+
+#recalibrateButton {
+  position: fixed;
+  z-index: 30;
+  right: 14px;
+  bottom: max(20px, calc(env(safe-area-inset-bottom) + 12px));
+  background: rgba(0,0,0,.60);
+  color: white;
+  padding: 10px 14px;
+  font-size: 13px;
+  display: none;
+}
+
+#crosshair {
+  position: fixed;
+  z-index: 25;
+  left: 50%;
+  top: 47%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+  display: none;
+  pointer-events: none;
+}
+
+#crosshair::before,
+#crosshair::after {
+  content: "";
+  position: absolute;
+  background: white;
+  box-shadow: 0 1px 4px rgba(0,0,0,.7);
+}
+
+#crosshair::before {
+  width: 44px;
+  height: 2px;
+  left: 0;
+  top: 21px;
+}
+
+#crosshair::after {
+  height: 44px;
+  width: 2px;
+  top: 0;
+  left: 21px;
+}
+
+#crosshairDot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border: 2px solid #ffe600;
+  border-radius: 50%;
+  left: 18px;
+  top: 18px;
+}
+
+#error {
+  position: fixed;
+  z-index: 60;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(90vw, 520px);
+  padding: 18px;
+  border-radius: 16px;
+  background: rgba(135,0,0,.94);
+  color: white;
+  text-align: center;
+  display: none;
+}
 </style>
 </head>
 
 <body>
 
+<video id="camera" autoplay muted playsinline webkit-playsinline></video>
+
+<video
+  id="arVideo"
+  src="./assets/video.mp4?v=iphone1"
+  loop
+  playsinline
+  webkit-playsinline
+  preload="auto">
+</video>
+
 <div id="hud">
-  Aponte para a ACT Tower e mova o celular lentamente.<br>
-  <span id="distance">Obtendo GPS…</span><br>
-  <span id="status">Carregando vídeo…</span>
+  <span id="version">IPHONE GEO AR v1</span><br>
+  <span id="status">Toque em “Iniciar AR”.</span><br>
+  <span id="details"></span>
 </div>
 
-<button id="sound">🔊 Ativar som</button>
+<div id="crosshair"><div id="crosshairDot"></div></div>
 
-<a-scene
-  vr-mode-ui="enabled:false"
-  arjs="sourceType:webcam; videoTexture:true; debugUIEnabled:false;"
-  renderer="antialias:true; alpha:true;">
+<button id="calibrateButton">📍 Calibrar no topo</button>
+<button id="recalibrateButton">Recalibrar</button>
 
-  <a-assets timeout="30000">
-    <video
-      id="arVideo"
-      src="./assets/video.mp4"
-      preload="auto"
-      autoplay
-      loop
-      muted
-      playsinline
-      webkit-playsinline>
-    </video>
-  </a-assets>
+<div id="startScreen">
+  <div id="startCard">
+    <h1>ACT Tower AR</h1>
+    <p>
+      Um toque vai liberar câmera, localização, sensores e áudio.
+      Depois mire no <b>topo da ACT Tower</b> e calibre.
+    </p>
+    <button id="startButton">Iniciar AR</button>
+  </div>
+</div>
 
-  <!--
-    COORDENADA CORRIGIDA DA ACT TOWER:
-    34.70555, 137.73719
-  -->
-
-  <!-- Vídeo vertical 9:16 -->
-  <a-entity
-    id="videoAnchor"
-    gps-new-entity-place="latitude:34.70555; longitude:137.73719"
-    position="0 210 0"
-    look-at="[gps-new-camera]">
-
-    <a-plane
-      id="videoPlane"
-      width="67.5"
-      height="120"
-      material="src:#arVideo; shader:flat; side:double;">
-    </a-plane>
-
-  </a-entity>
-
-  <!-- Esfera de diagnóstico, visível de qualquer ângulo -->
-  <a-sphere
-    id="marker"
-    gps-new-entity-place="latitude:34.70555; longitude:137.73719"
-    position="0 235 0"
-    radius="10"
-    material="color:#ffff00; emissive:#ffff00; emissiveIntensity:1;">
-  </a-sphere>
-
-  <a-camera
-    id="camera"
-    gps-new-camera="gpsMinDistance:3; positionMinAccuracy:100"
-    camera="far:5000"
-    look-controls-enabled="false"
-    arjs-device-orientation-controls="smoothingFactor:0.1">
-  </a-camera>
-
-</a-scene>
+<div id="error"></div>
 
 <script>
-window.addEventListener("DOMContentLoaded",()=>{
-  const video=document.querySelector("#arVideo");
-  const plane=document.querySelector("#videoPlane");
-  const anchor=document.querySelector("#videoAnchor");
-  const camera=document.querySelector("#camera");
-  const distance=document.querySelector("#distance");
-  const status=document.querySelector("#status");
-  const sound=document.querySelector("#sound");
+(() => {
+  // ACT Tower corrigida
+  const TARGET_LAT = 34.70555;
+  const TARGET_LON = 137.73719;
 
-  // Mantém a proporção real 1080x1920 = 9:16.
-  video.addEventListener("loadedmetadata",()=>{
-    if(video.videoWidth && video.videoHeight){
-      const h=120;
-      const w=h*(video.videoWidth/video.videoHeight);
-      plane.setAttribute("width",w);
-      plane.setAttribute("height",h);
+  // Tamanho virtual do vídeo 9:16
+  const VIRTUAL_WIDTH_M = 67.5;
+  const VIRTUAL_HEIGHT_M = 120;
+
+  // Aproximação de campo de visão da câmera traseira.
+  const HFOV = 65; // graus
+  const VFOV = 52; // graus
+
+  const cameraVideo = document.getElementById("camera");
+  const arVideo = document.getElementById("arVideo");
+  const startScreen = document.getElementById("startScreen");
+  const startButton = document.getElementById("startButton");
+  const calibrateButton = document.getElementById("calibrateButton");
+  const recalibrateButton = document.getElementById("recalibrateButton");
+  const crosshair = document.getElementById("crosshair");
+  const statusEl = document.getElementById("status");
+  const detailsEl = document.getElementById("details");
+  const errorEl = document.getElementById("error");
+
+  let userLat = null;
+  let userLon = null;
+  let accuracy = null;
+  let heading = null;
+  let beta = null;
+
+  let calibrated = false;
+  let compassOffset = 0;
+  let betaAtCalib = null;
+
+  let gpsWatch = null;
+  let animationStarted = false;
+
+  function showError(msg) {
+    errorEl.textContent = msg;
+    errorEl.style.display = "block";
+  }
+
+  function hideError() {
+    errorEl.style.display = "none";
+  }
+
+  function rad(v) { return v * Math.PI / 180; }
+  function deg(v) { return v * 180 / Math.PI; }
+
+  function normalize180(a) {
+    while (a > 180) a -= 360;
+    while (a < -180) a += 360;
+    return a;
+  }
+
+  function normalize360(a) {
+    a %= 360;
+    if (a < 0) a += 360;
+    return a;
+  }
+
+  function distanceMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const p1 = rad(lat1);
+    const p2 = rad(lat2);
+    const dp = rad(lat2 - lat1);
+    const dl = rad(lon2 - lon1);
+
+    const a =
+      Math.sin(dp / 2) ** 2 +
+      Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+
+    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  function bearingDegrees(lat1, lon1, lat2, lon2) {
+    const p1 = rad(lat1);
+    const p2 = rad(lat2);
+    const dl = rad(lon2 - lon1);
+
+    const y = Math.sin(dl) * Math.cos(p2);
+    const x =
+      Math.cos(p1) * Math.sin(p2) -
+      Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
+
+    return normalize360(deg(Math.atan2(y, x)));
+  }
+
+  async function requestMotionPermission() {
+    if (
+      typeof DeviceOrientationEvent !== "undefined" &&
+      typeof DeviceOrientationEvent.requestPermission === "function"
+    ) {
+      const result = await DeviceOrientationEvent.requestPermission();
+      if (result !== "granted") {
+        throw new Error("Permissão de movimento/sensores não autorizada.");
+      }
+    }
+  }
+
+  async function startCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error("Este navegador não permite acesso à câmera.");
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      }
+    });
+
+    cameraVideo.srcObject = stream;
+    await cameraVideo.play();
+  }
+
+  function startGPS() {
+    if (!navigator.geolocation) {
+      throw new Error("Geolocalização indisponível.");
+    }
+
+    gpsWatch = navigator.geolocation.watchPosition(
+      pos => {
+        userLat = pos.coords.latitude;
+        userLon = pos.coords.longitude;
+        accuracy = pos.coords.accuracy;
+
+        const d = distanceMeters(userLat, userLon, TARGET_LAT, TARGET_LON);
+
+        statusEl.textContent =
+          `ACT Tower: aproximadamente ${Math.round(d)} m`;
+
+        updateDetails();
+      },
+      err => {
+        showError("GPS: " + err.message);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 20000
+      }
+    );
+  }
+
+  function orientationHandler(e) {
+    // iPhone/Safari oferece webkitCompassHeading, que é o melhor caminho aqui.
+    if (typeof e.webkitCompassHeading === "number") {
+      heading = e.webkitCompassHeading;
+    } else if (typeof e.alpha === "number") {
+      heading = normalize360(360 - e.alpha);
+    }
+
+    if (typeof e.beta === "number") {
+      beta = e.beta;
+    }
+
+    updateDetails();
+  }
+
+  function updateDetails() {
+    const parts = [];
+
+    if (accuracy != null) parts.push(`GPS ±${Math.round(accuracy)} m`);
+    if (heading != null) parts.push(`bússola ${Math.round(heading)}°`);
+
+    detailsEl.textContent = parts.join(" • ");
+
+    if (
+      userLat != null &&
+      heading != null &&
+      beta != null &&
+      !calibrated
+    ) {
+      calibrateButton.style.display = "block";
+      crosshair.style.display = "block";
+    }
+  }
+
+  async function unlockARVideoAudio() {
+    try {
+      arVideo.muted = false;
+      await arVideo.play();
+      return true;
+    } catch (e) {
+      arVideo.muted = true;
+      try { await arVideo.play(); } catch (_) {}
+      return false;
+    }
+  }
+
+  function calibrate() {
+    if (userLat == null || heading == null || beta == null) return;
+
+    const bearing = bearingDegrees(
+      userLat, userLon,
+      TARGET_LAT, TARGET_LON
+    );
+
+    // Se você está mirando o topo, essa diferença corrige erro local da bússola.
+    compassOffset = normalize180(bearing - heading);
+    betaAtCalib = beta;
+    calibrated = true;
+
+    crosshair.style.display = "none";
+    calibrateButton.style.display = "none";
+    recalibrateButton.style.display = "block";
+
+    statusEl.textContent = "✓ Calibrado no topo da ACT Tower";
+    arVideo.style.display = "block";
+
+    if (!animationStarted) {
+      animationStarted = true;
+      requestAnimationFrame(renderLoop);
+    }
+  }
+
+  function renderLoop() {
+    if (
+      calibrated &&
+      userLat != null &&
+      userLon != null &&
+      heading != null &&
+      beta != null
+    ) {
+      const distance = distanceMeters(
+        userLat, userLon,
+        TARGET_LAT, TARGET_LON
+      );
+
+      const bearing = bearingDegrees(
+        userLat, userLon,
+        TARGET_LAT, TARGET_LON
+      );
+
+      const correctedHeading = normalize360(heading + compassOffset);
+      const horizontalDiff = normalize180(bearing - correctedHeading);
+
+      // Posição horizontal baseada em diferença angular.
+      const x =
+        window.innerWidth / 2 +
+        (horizontalDiff / HFOV) * window.innerWidth;
+
+      // No momento da calibração, a base do vídeo fica exatamente na mira.
+      // Depois ele acompanha a inclinação vertical do celular.
+      const betaDiff = beta - betaAtCalib;
+
+      const anchorY =
+        window.innerHeight * 0.47 -
+        (betaDiff / VFOV) * window.innerHeight;
+
+      // Escala aparente conforme distância.
+      // Converte largura física virtual em ângulo.
+      const angularWidth =
+        2 * Math.atan((VIRTUAL_WIDTH_M / 2) / Math.max(distance, 20));
+
+      const widthPx =
+        Math.max(
+          80,
+          Math.min(
+            window.innerWidth * 0.85,
+            (deg(angularWidth) / HFOV) * window.innerWidth
+          )
+        );
+
+      const heightPx = widthPx * (16 / 9);
+
+      arVideo.style.width = `${widthPx}px`;
+      arVideo.style.height = `${heightPx}px`;
+
+      // Base do vídeo ancorada no topo calibrado.
+      arVideo.style.left = `${x}px`;
+      arVideo.style.top = `${anchorY}px`;
+      arVideo.style.transform = "translate(-50%, -100%)";
+
+      const onScreen =
+        Math.abs(horizontalDiff) < HFOV * 0.75 &&
+        anchorY > -heightPx &&
+        anchorY < window.innerHeight + heightPx;
+
+      arVideo.style.visibility = onScreen ? "visible" : "hidden";
+
+      detailsEl.textContent =
+        `GPS ±${accuracy ? Math.round(accuracy) : "?"} m • ` +
+        `distância ${Math.round(distance)} m • ` +
+        `direção ${Math.round(horizontalDiff)}°`;
+    }
+
+    requestAnimationFrame(renderLoop);
+  }
+
+  startButton.addEventListener("click", async () => {
+    hideError();
+    startButton.disabled = true;
+    startButton.textContent = "Abrindo…";
+
+    try {
+      // IMPORTANTE: tudo parte do mesmo gesto do usuário.
+      await requestMotionPermission();
+      await startCamera();
+      await unlockARVideoAudio();
+
+      window.addEventListener("deviceorientation", orientationHandler, true);
+      window.addEventListener("deviceorientationabsolute", orientationHandler, true);
+
+      startGPS();
+
+      startScreen.style.display = "none";
+      statusEl.textContent = "Aguardando GPS e bússola…";
+      detailsEl.textContent = "Depois mire a cruz no topo da ACT Tower.";
+
+    } catch (err) {
+      console.error(err);
+      startButton.disabled = false;
+      startButton.textContent = "Tentar novamente";
+      showError(err?.message || "Não foi possível iniciar.");
     }
   });
 
-  video.addEventListener("canplay",()=>{
-    status.textContent="✓ Vídeo carregado";
-    video.play().catch(()=>{});
+  calibrateButton.addEventListener("click", calibrate);
+
+  recalibrateButton.addEventListener("click", () => {
+    calibrated = false;
+    arVideo.style.display = "none";
+    recalibrateButton.style.display = "none";
+    crosshair.style.display = "block";
+    calibrateButton.style.display = "block";
+    statusEl.textContent = "Mire novamente no topo e calibre.";
   });
-
-  video.addEventListener("playing",()=>{
-    status.textContent="✓ Vídeo reproduzindo";
-  });
-
-  video.addEventListener("error",()=>{
-    status.textContent="⚠️ Erro em assets/video.mp4";
-  });
-
-  sound.addEventListener("click",async()=>{
-    try{
-      video.muted=false;
-      await video.play();
-      sound.classList.add("hidden");
-      status.textContent="✓ Vídeo + som ativos";
-    }catch(e){
-      status.textContent="⚠️ Toque novamente para ativar o som";
-    }
-  });
-
-  camera.addEventListener("gps-camera-update-position",()=>{
-    const comp=anchor.components["gps-new-entity-place"];
-
-    if(comp && typeof comp.distance==="number"){
-      const d=comp.distance;
-      distance.textContent=d<1000
-        ? `ACT Tower: aproximadamente ${Math.round(d)} m`
-        : `ACT Tower: aproximadamente ${(d/1000).toFixed(1)} km`;
-    }else{
-      distance.textContent="GPS ativo";
-    }
-  });
-
-  setTimeout(()=>{
-    video.muted=true;
-    video.play().catch(()=>{});
-  },1000);
-});
+})();
 </script>
 
 </body>
